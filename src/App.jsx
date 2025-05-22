@@ -3,20 +3,16 @@ import {
   Button,
   Heading,
   Flex,
-  View,
   Divider,
   SelectField,
 } from "@aws-amplify/ui-react";
-import { useAuthenticator } from "@aws-amplify/ui-react";
 import { Amplify } from "aws-amplify";
 import "@aws-amplify/ui-react/styles.css";
-import { generateClient } from "aws-amplify/data";
 import outputs from "../amplify_outputs.json";
 import FFTPlot from "./FFTPlot";
 import OriginalSignalPlot from "./OriginalSignalPlot";
 
 Amplify.configure(outputs);
-const client = generateClient({ authMode: "userPool" });
 
 export default function App() {
   const [frequencies, setFrequencies] = useState(null);
@@ -25,9 +21,7 @@ export default function App() {
   const [fileName, setFileName] = useState(null);
   const [fullSignal, setFullSignal] = useState(null);
   const [signalSlice, setSignalSlice] = useState(null);
-  const [signalStartIndex, setSignalStartIndex] = useState(0);
   const [fftSize, setFftSize] = useState(2048);
-  const { signOut } = useAuthenticator((context) => [context.user]);
 
   async function handleFileChange(event) {
     const file = event.target.files[0];
@@ -47,18 +41,12 @@ export default function App() {
       const rawSignal = audioBuffer.getChannelData(0);
       setFullSignal(rawSignal);
       setSampleRate(audioBuffer.sampleRate);
-      updateWindow(rawSignal, 0);
+      const slice = rawSignal.slice(0, fftSize);
+      setSignalSlice(slice);
     } catch (error) {
       console.error("❌ Errore nella lettura del file WAV:", error);
       alert("Errore nella lettura del file WAV");
     }
-  }
-
-  function updateWindow(signal, startIndex) {
-    const slice = signal.slice(startIndex, startIndex + fftSize);
-    setSignalSlice(slice);
-    setSignalStartIndex(startIndex);
-    // callFFT is now handled by useEffect
   }
 
   useEffect(() => {
@@ -74,45 +62,45 @@ export default function App() {
     }
   }, [signalSlice, fftSize, sampleRate]);
 
-async function callFFT(signal, sampleRate) {
-  console.log("🚀 Invio segnale per FFT con sampleRate:", sampleRate);
-  console.log("📊 Signal preview:", signal.slice(0, 5));
+  async function callFFT(signal, sampleRate) {
+    console.log("🚀 Invio segnale per FFT con sampleRate:", sampleRate);
 
-  try {
-    const response = await fetch(
-      "https://cocu4sbsg5.execute-api.eu-central-1.amazonaws.com/dev/upload",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signals: [Array.from(signal)] }),  // <-- Fix here
+    try {
+      const response = await fetch(
+        "https://cocu4sbsg5.execute-api.eu-central-1.amazonaws.com/dev/upload",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ signals: [Array.from(signal)] }),
+        }
+      );
+
+      if (!response.ok) {
+        const text = await response.text();
+        console.error("❌ Risposta NON OK:", response.status, text);
+        return;
       }
-    );
 
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("❌ Risposta NON OK:", response.status, text);
-      return;
+      const result = await response.json();
+      console.log("✅ FFT Result ricevuto:", result);
+
+      if (result.length > 0) {
+        const fft = result[0];
+        const freqsHz = fft.frequencies.map((f) => f * sampleRate);
+        const amps = fft.amplitudes;
+
+        const maxFreq = 8000;
+        const limitIndex = freqsHz.findIndex((f) => f > maxFreq);
+
+        setFrequencies(freqsHz.slice(0, limitIndex));
+        setAmplitudes(amps.slice(0, limitIndex));
+      } else {
+        console.warn("⚠️ Risultato vuoto ricevuto.");
+      }
+    } catch (error) {
+      console.error("❌ Errore durante la chiamata FFT:", error);
     }
-
-    const result = await response.json();
-    console.log("✅ FFT Result ricevuto:", result);
-
-    if (result.length > 0) {
-      const fft = result[0];
-      const freqsHz = fft.frequencies.map((f) => f * sampleRate);
-      const amps = fft.amplitudes;
-
-      const maxFreq = 8000;
-      const limitIndex = freqsHz.findIndex((f) => f > maxFreq);
-      setFrequencies(freqsHz.slice(0, limitIndex));
-      setAmplitudes(amps.slice(0, limitIndex));
-    } else {
-      console.warn("⚠️ Risultato vuoto ricevuto.");
-    }
-  } catch (error) {
-    console.error("❌ Errore durante la chiamata FFT:", error);
   }
-}
 
   function resetAnalysis() {
     setFrequencies(null);
@@ -120,11 +108,8 @@ async function callFFT(signal, sampleRate) {
     setFileName(null);
     setFullSignal(null);
     setSignalSlice(null);
-    setSignalStartIndex(0);
     console.log("🔄 Analisi FFT resettata.");
   }
-
-  const maxIndex = fullSignal ? fullSignal.length - fftSize : 0;
 
   return (
     <Flex
@@ -162,44 +147,23 @@ async function callFFT(signal, sampleRate) {
 
       {fileName && <p><strong>📂 File caricato:</strong> {fileName}</p>}
 
-      {fullSignal && (
-        <>
-          <label htmlFor="windowSlider">🕒 Finestra temporale (secondi):</label>
-          <input
-            id="windowSlider"
-            type="range"
-            min={0}
-            max={maxIndex}
-            step={fftSize}
-            value={signalStartIndex}
-            onChange={(e) =>
-              updateWindow(fullSignal, Number(e.target.value))
-            }
-            style={{ width: "100%", marginBottom: "1rem" }}
-          />
-        </>
-      )}
-
       {signalSlice && sampleRate && (
         <OriginalSignalPlot
           signal={signalSlice}
           sampleRate={sampleRate}
-          startIndex={signalStartIndex}
+          startIndex={0}
         />
       )}
 
       {frequencies && amplitudes && sampleRate && (
-        <FFTPlot
-          frequencies={frequencies}
-          amplitudes={amplitudes}
-          sampleRate={sampleRate}
-          onReset={resetAnalysis}
-        />
+        <>
+          <FFTPlot
+            frequencies={frequencies}
+            amplitudes={amplitudes}
+            sampleRate={sampleRate}
+          />
+        </>
       )}
-
-      <Button onClick={signOut} style={{ marginTop: "15rem" }}>
-        Sign Out
-      </Button>
     </Flex>
   );
 }
