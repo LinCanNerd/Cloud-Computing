@@ -23,7 +23,7 @@ ChartJS.register(
 );
 
 
-const FFTPlot = ({ frequencies, amplitudes, sampleRate, onReset }) => {
+const FFTPlot = ({ frequencies, amplitudes, onReset }) => {
   const peakFreq = useMemo(() => {
     if (!amplitudes || amplitudes.length === 0) return null;
     const maxIndex = amplitudes.reduce((iMax, val, i, arr) => val > arr[iMax] ? i : iMax, 0);
@@ -68,14 +68,11 @@ const FFTPlot = ({ frequencies, amplitudes, sampleRate, onReset }) => {
     <div style={{ width: "100%", height: "300px", marginTop: "2rem" }}>
       <h3>Spettro delle Frequenze (FFT)</h3>
       <Line data={data} options={options} />
-      {peakFreq && (
+      {/* {peakFreq && (
         <p style={{ marginTop: "1rem" }}>
           🎯 <strong>Frequenza dominante:</strong> {peakFreq.toFixed(2)} Hz
         </p>
-      )}
-      <Button onClick={onReset} style={{ marginTop: "1rem" }}>
-        Elimina output
-      </Button>
+      )} */}
     </div>
   );
 };

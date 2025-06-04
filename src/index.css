@@ -3,18 +3,32 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color: rgba(255, 255, 255, 0.87);
+  background: linear-gradient(to bottom right, #eff7e6, #e8f6e5);
+  color: #0f172a;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  padding-top: 0rem;
 }
+
+body {
+  padding-top: 0rem;
+  /* display: flex; */
+  flex-direction: column; 
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 2rem;
+  margin: 0;
+  /* overflow: hidden; */
+}
+
+
 
 .card {
   padding: 2em;
